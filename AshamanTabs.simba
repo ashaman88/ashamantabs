@@ -730,6 +730,7 @@ End;
 Procedure Setup;
 Begin
   ClearDebug;
+  AutoUpdateMe;
   SmartEnableDrawing := True;
   SetupSRL;
 
