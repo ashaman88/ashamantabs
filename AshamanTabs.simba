@@ -23,11 +23,11 @@ AshamanTabs v2.0
 
 Const
   DemonButler = True;  // ***Set to true if you are using the demon butler (False if you are using regular butler)***
-  TabType     = 'Varrock';    // ***What kind of tab are you making?***
+  TabType     = '';    // ***What kind of tab are you making?***
                        //    (Varrock,Lumbridge,Falador,Camelot,Ardougne,Watchtower,House)
-                       //    (BTB,BTP,EnchantSapphire,EnchantEmerald,EnchantRuby,EnchantDiamond,EnchantDragonstone,EnchantOnyx)
+                       //    (BTB,BTP,==DEMON LECTERN NOT ADDED YET SRL 6 ==EnchantSapphire,EnchantEmerald,EnchantRuby,EnchantDiamond,EnchantDragonstone,EnchantOnyx)
   TimetoRun   = 8.0;   // ***Enter number of hours to run or until client token error***
-  Slot        = 1;
+  Slot        = 1;     // ***What slot is your noted softclay at?***
 
 Procedure DeclarePlayers;
 Begin
@@ -98,6 +98,7 @@ Begin
   End Else
     WriteLn('You have the latest version of the script!');
 End;
+
 Procedure SetDTM;
 Begin
   NotedClayDTM := DTMFromString('mQwAAAHicY2ZgYMhiYmAoAeIUIH4C5L8F4jdAHGLLw7B6dhHDnN4MBn4gH4YZkTAQAABS9Qgf');
@@ -267,7 +268,7 @@ Begin
       End;
     12..200:
       Begin
-        SleepAndMoveMouse(RandomRange(100,2000));
+        SleepAndMoveMouse(RandomRange(100,5000));
         Result:=True;
       End;
     201..400:
@@ -497,16 +498,6 @@ Begin
         Until Not IsLoggedIn;
 
         Wait(RandomRange(1000,2000));
-
-      {  If WaitFindColor(X,Y,0,266,397,281,407,1,5000) Then
-        Begin
-          Wait(Random(800));
-          If (28-TabBackpack.Count)<=Count Then
-            TypeSendEx(Tostr(28-TabBackpack.Count),True) Else
-            TypeSendEx(ToStr(Count),True);
-          Result:= True;
-          Exit;
-        End;  }
       End;
     End;
   End;
