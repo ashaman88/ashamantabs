@@ -1,0 +1,820 @@
+Program AshamanTabs;
+  {$Define SMART}
+  {$I SRL-6/SRL.Simba}
+
+{
+
+AshamanTabs v2.0
+-Make sure you are standing in front of your lectern and next to the butler (talk to him)
+-Make sure you have noted clay in inventory
+-If using a staff, have it already equipped
+-Have any other necessary runes in inventory
+-Don't wear white or red clothing
+-Fill out tabtype exactly the same as the examples!!
+-If you want an accurate xp calc, set the xp bar tracker to total or mage xp and it can't say 'lots'
+}
+
+///////////////////////////////////////////////////////////////////////
+//                                                                   //
+//                  Begin of user setup                              //
+//                Fill in the fields below                           //
+//                                                                   //
+///////////////////////////////////////////////////////////////////////
+
+Const
+  DemonButler = True;  // ***Set to true if you are using the demon butler (False if you are using regular butler)***
+  TabType     = 'Varrock';    // ***What kind of tab are you making?***
+                       //    (Varrock,Lumbridge,Falador,Camelot,Ardougne,Watchtower,House)
+                       //    (BTB,BTP,EnchantSapphire,EnchantEmerald,EnchantRuby,EnchantDiamond,EnchantDragonstone,EnchantOnyx)
+  TimetoRun   = 8.0;   // ***Enter number of hours to run or until client token error***
+  Slot        = 1;
+
+Procedure DeclarePlayers;
+Begin
+  Players.Setup(['Player1'], 'PlayerList'); //***Fill this out, Player1 = Name of the account in player manager, PlayerList = name of the player file***
+  SetLength(Players,1);
+
+  //***If NOT using the player manager, fill out the loginname and password below, otherwise ignore those two***
+  With players[0] Do
+  Begin
+  // loginName := '';      {Remove the "//" from this line if you arent using player manager}
+  // password := '';       {Remove the "//" from this line if you arent using player manager}
+    IsActive := True;
+  End;
+  CurrentPlayer := 0;
+End;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                  //
+//                                                                                                  //
+//               Don't touch below this line unless you know what you're doing!!                    //
+//                                                                                                  //
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+
+Const
+  ScriptVersion = '2.0';
+  Debug = False;
+
+Var
+  TabCount,XP,StartingExperience: Integer;
+  TabBox,LecternBox: TBox;
+  Timeout,RunTimer: TTimeMarker;
+  NotedClayDTM,ClayDTM,LawDTM,Color,Tolerance,Count,NatureDTM,RunTime,XDTM: Integer;
+  TabsPH,XPH,Hue,Sat: Extended;
+
+{*******************************************************************************
+Function AutoupdateMe;
+By: Shuttleu
+Edited By: Ashaman88
+Description: Autoupdates Script.
+*******************************************************************************}
+Procedure AutoUpdateMe;
+Var
+  Neifile: Integer;
+  OnlineVersion, NewScript, NeiFeilNennen: String;
+Begin
+  Writeln('Checking for script updates...');
+  OnlineVersion := GetPage('http://ashamantabs.googlecode.com/git/Version.txt');
+  Writeln('Online Version: '+ToStr(OnlineVersion));
+  Writeln('Local Version: '+ToStr(ScriptVersion));
+  If (trim(OnlineVersion) > ScriptVersion) Then
+  Begin
+    WriteLn('Newer script version online!');
+    WriteLn('Autoupdating to newer version.');
+    NewScript := GetPage('http://ashamantabs.googlecode.com/git/AshamanTabs.simba');
+    NeiFeilNennen := ScriptPath+ 'AshamanTabs V'+OnlineVersion+'.simba';
+    Neifile := Rewritefile(NeiFeilNennen, true);
+    Try
+      WriteFileString(Neifile, NewScript);
+    Except
+      Begin
+        WriteLn('Fatal error writing to '+NeiFeilNennen+'!!');
+        Terminatescript;
+      End;
+    End;
+    CloseFile(Neifile);
+    WriteLn('New script downloaded to '+NeiFeilNennen+'!! Please use this one!!');
+    TerminateScript;
+  End Else
+    WriteLn('You have the latest version of the script!');
+End;
+Procedure SetDTM;
+Begin
+  NotedClayDTM := DTMFromString('mQwAAAHicY2ZgYMhiYmAoAeIUIH4C5L8F4jdAHGLLw7B6dhHDnN4MBn4gH4YZkTAQAABS9Qgf');
+  ClayDTM := DTMFromString('mggAAAHicY2NgYGBlQABOIBYEYnYoZgFiHiDmQ1IXYsvD4GvBzRDvyssQ4cDDYKPNwWCny8nABZTDhhlxYAgAABXfA/4=');
+  LawDTM := DTMFromString('mWAAAAHicY2FgYHBkYmBwB2IbIPYC4hdAsSdA/JgBwpZXvgbHtRUVDPxAMWTMiIZBAAAL6Qmn');
+  NatureDTM := DTMFromString('mlwAAAHicY2dgYOAAYj4gZgNiLigGAUEgZoSy2ZHUgdicQFxWWMggUCEMx7GRkQyRoaEMVaUlDPxAeVyYEQ+GAgBNvQeF');
+  XDTM := DTMFromString('mggAAAHicY2NgYDBlgmALIDYBYn0oTgHKJQBxKhBnAnEGA0RMSVaMITXaA44L0wIZGopiGFiBctgwIw4MAQD0zgms');
+End;
+
+Procedure Fr33DTM;
+Begin
+  FreeDTM(ClayDTM);
+  FreeDTM(NotedClayDTM);
+  FreeDTM(LawDTM);
+  FreeDTM(NatureDTM);
+  FreeDTM(XDTM);
+End;
+
+function TRSChatBox.getXP: Integer;
+var
+  b: TBox;
+  s: String;
+  tpa : TPointArray;
+  atpa : T2DPointArray;
+  i,cts,p: Integer;
+begin
+  b := self.getBounds();
+  b.edit(+(b.x2-b.x1)-140, +10, -5, -94);
+
+  findColorsTolerance(tpa, 14013909, b, 4,colorSetting(2, 0.00, 0.00));
+
+  if length(tpa) < 2 then
+  begin
+    print('chatBox.getXP(): No XP found', TDebug.SUB);
+    Exit;
+  end;
+
+  atpa := tpa.cluster(5);
+
+  b:= atpa.getbounds;
+  b.edit(-2,-2,+2,+3);
+
+  s:=Replace(tesseractgettext(b.x1,b.y1,b.x2,b.y2, FILTER_SMALL_CHARS), ' ', '', [rfReplaceAll]);
+
+  P := Pos('x', S);
+  if P > 0 then
+    Result := StrToIntDef(ExtractFromStr(Copy(s, P, Length(S)), Numbers), 0)
+  else
+    Result := StrToIntDef(ExtractFromStr(S, Numbers), 0);
+
+  print('chatBox.getXP(): XP found: ' + tostr(result), TDebug.SUB);
+end;
+
+Procedure QuickBoxSort(var A: TIntegerArray; var B: TBoxArray; iLo, iHi: Integer; SortUp: Boolean);
+Var
+  Lo, Hi, Mid, T: Integer;
+  TP: TBox;
+Begin
+  If (Length(A) <> Length(B)) Then
+    Exit;
+  Lo := iLo;
+  Hi := iHi;
+  Mid := A[(Lo + Hi) shr 1];
+  Repeat
+    If SortUp Then
+    Begin
+      While (A[Lo] < Mid) Do Inc(Lo);
+      While (A[Hi] > Mid) Do Dec(Hi);
+    End Else
+    Begin
+      While (A[Lo] > Mid) Do Inc(Lo);
+      While (A[Hi] < Mid) Do Dec(Hi);
+    End;
+    If (Lo <= Hi) Then
+    Begin
+      T := A[Lo];
+      A[Lo] := A[Hi];
+      A[Hi] := T;
+      TP := B[Lo];
+      B[Lo] := B[Hi];
+      B[Hi] := TP;
+      Inc(Lo);
+      Dec(Hi);
+    End;
+  Until Lo > Hi;
+  If (Hi > iLo) Then QuickBoxSort(A, B, iLo, Hi, SortUp);
+  If (Lo < iHi) Then QuickBoxSort(A, B, Lo, iHi, SortUp);
+End;
+
+
+{*
+  Sorts A TBoxArray by Mid-Point. Closest OverallBox by Midpoint to the From-Point First.
+*}
+Procedure MidSortBoxArrayFrom(Var BoxArray: TBoxArray; Const From: TPoint);
+Var
+   I,L: Integer;
+   Mid: TPoint;
+   DistArr: TIntegerArray;
+Begin
+  L := High(BoxArray);
+  If (L < 0) Then
+    Exit;
+  SetLength(DistArr, L + 1);
+
+  For I := 0 To L Do
+  Begin
+    Mid := MiddleBox(BoxArray[I]);
+    DistArr[I] := Round(Sqr(From.X - Mid.X) + Sqr(From.Y - Mid.Y));
+  End;
+
+  QuickBoxSort(DistArr,BoxArray,0,l,True);
+End;
+
+procedure mouseOffClient(Direction: Integer; Stay: Boolean);  overload;
+var
+  B: TBoxArray;
+  P: TPoint;
+  i, W, H,X,Y: Integer;
+begin
+  GetClientDimensions(W, H);
+  GetMousePos(X,Y);
+  if (X < 0) or (X > W) or (Y < 0) or (Y > H) then
+     exit;
+
+  SetLength(B, 4);
+
+  B[OFF_CLIENT_TOP] := [-300, -300, W, 0]; // top
+  B[OFF_CLIENT_BOTTOM] := [0, H, W, H +300];  // bottom
+  B[OFF_CLIENT_LEFT] := [0-300, 0, 0, H];   // left
+  B[OFF_CLIENT_RIGHT] := [W, 0, W +300, H];  // right
+
+  if (Direction = OFF_CLIENT_RANDOM) then
+    i := Random(4)
+  else
+    i := Direction;
+
+  P := Point(RandomRange(B[i].X1, B[i].X2), RandomRange(B[i].Y1, B[i].Y2));
+  Mouse(Point(P.X, P.Y), MOUSE_MOVE);
+end;
+
+Function FindNormalRandoms: Boolean;
+Begin
+  Result:= ExitSquealOfFortune Or ClaimSpinTicket;
+End;
+
+Function Antiban: Boolean;
+Var
+  I: Integer;
+Begin
+  I := Random(600);
+  Case I Of
+    1..3:
+      Begin
+        Wait(RandomRange(1000, 1500));
+        Result := True;
+      End;
+    4..7:
+      Begin
+        hoverSkill(SKILL_MAGIC);
+        TabBackpack.Open;
+        Result := True;
+      End;
+    8..11:
+      Begin
+        mousemovingobject;
+        Result := True;
+      End;
+    12..200:
+      Begin
+        SleepAndMoveMouse(RandomRange(100,2000));
+        Result:=True;
+      End;
+    201..400:
+      Begin
+        Wait(RandomRange(250, 1500));
+        MouseOffClient(4,True);
+        Wait(RandomRange(3000, 6000));
+        Result:=True;
+      End;
+    401..600:
+      Begin
+        Wait(RandomRange(250, 1500));
+        Result:=True;
+      End;
+  End;
+  Wait(RandomRange(1250, 3350));
+End;
+
+Procedure TypeFast(Text: String; PressEnter: Boolean);
+Var
+  I: Integer;
+Begin
+  For I:=1 to Length(Text) Do
+    {$IFDEF SIMBAMAJOR980}
+    SendKeys(Text[I], 10 + Random(2));
+    {$ELSE}
+    SendKeys(Text[I], 10 + Random(2), 10 + Random(2));
+    {$ENDIF}
+
+  If (PressEnter) Then
+    TypeByte(VK_ENTER);
+End;
+
+Function MakeItemMenu(Time: Integer): Boolean;
+Var
+  T: TTimeMarker;
+  X,Y: Integer;
+Begin
+  If Not IsLoggedIn Then
+    Exit;
+  T.Start;
+  Repeat
+    Wait(Random(100));
+    Result:= FindDTM(XDTM,X,Y,506,35,533,62);
+  Until (T.GetTime>Time) Or (Result);
+End;
+
+Procedure FailSafe;
+Var
+  T: TTimeMarker;
+Begin
+  If Debug Then
+    Writeln('MISCLICKED, DOING FAILSAFE');
+  Mouse(Point(289+GaussRangeInt(-10,10),203+GaussRangeInt(-10,10)),Mouse_Left,Mouse_Human);
+
+  Wait(RandomRange(400,500));
+
+  T.Start;
+  Repeat
+    Wait(100);
+    If T.GetTime>5000 Then
+      Exit;
+  Until (Not(Minimap.IsPlayerMoving));
+End;
+
+function TRSConversationBox.PayUp: Boolean;
+var
+  b: TBox;
+  bb: TBoxArray;
+  tpa : TPointArray;
+  atpa : T2DPointArray;
+  i,cts: Integer;
+begin
+
+  if not self.isopen then
+    Exit;
+
+  cts := GetToleranceSpeed();
+  SetColorToleranceSpeed(2);
+
+  SetToleranceSpeed2Modifiers(0.23,3.37);
+
+  result:= countcolortolerance(9841213,IntToBox(325,515,363,528),13)=86;
+  SetColorToleranceSpeed(1);
+  SetToleranceSpeed2Modifiers(0.2,0.2);
+end;
+
+Function FindButler: Boolean;
+Var
+  X,Y,H,I,CTS,XC,YC: Integer;
+  T: TTimeMarker;
+  TPA: TPointArray;
+  ATPA: T2DPointArray;
+Label
+  Jump;
+Begin
+  Result := False;
+
+  If Not IsLoggedIn Then
+    Exit;
+
+  If (ChooseOption.OptionsExist(['Exam','mine','Examine','Canc','ncel','Cancel'])) Then
+  Begin
+    If Debug Then
+      Writeln('Closing options menu');
+    MouseOffClient(4);
+  End;
+
+  findColorsTolerance(tpa, Color, LecternBox, Tolerance, colorSetting(2, Hue,Sat));
+
+  ATPA:= TPA.Cluster(10);
+  atpa.filterBetween(0,15);
+
+  If (Length(ATPA) = 0) Then
+  Begin
+    If Debug Then
+      Writeln('No butler found.');
+    Exit;
+  End;
+
+  ATPA.SortBySize;
+  SmartImage.DebugATPA(ATPA);
+
+  H := High(ATPA);
+
+  For I:= 0 To Min(H,4) Do
+  Begin
+    If Debug Then
+      Writeln(Length(ATPA[i]));
+    Jump:
+
+    If Debug Then
+      Writeln('Using notes on butler');
+    If Not TabBackpack.IsSlotActivated(Slot) Then
+    Begin
+      If (Not FindDTM(NotedClayDTM,XC,YC,TabBackpack.GetBounds)) Then
+      Begin
+        If Debug Then
+          Writeln('No Clay found');
+        Exit;
+      End;
+
+      Mouse(XC,YC,GaussRangeInt(-5,5),GaussRangeInt(-5,5));
+      FastClick(Mouse_Left);
+    End;
+
+    MiddleTPAEx(ATPA[I],X,Y);
+    Mouse(X,Y,GaussRangeInt(-5,5),GaussRangeInt(-5,5));
+
+    If (IsMouseOverText(['utle','tler','Butl'],300)) Then
+    Begin
+      SMARTImage.Clear;
+      If Debug Then
+        Writeln('Found Butler, Clicking.');
+
+      FastClick(Mouse_Right);
+
+      If ChooseOption.Select(['> D','> B','tler','utle'],RandomRange(700,900)) Then
+      Begin
+        T.Start;
+        Repeat
+          If CountColor(618917,ConversationBox.GetBounds)=0 Then
+            Break;
+          If T.GetTime>4000 Then
+          Begin
+            If Debug Then
+              Writeln('Orange highlight color for paying butler didnt go away');
+            Exit;
+          End;
+        Until Not IsLoggedIn;
+
+        T.Reset;
+        T.Start;
+        Repeat
+          Wait(Random(800));
+          If T.GetTime > 8000 Then
+          Begin
+            If Debug Then
+              Writeln('Didnt find butler chat option timeout');
+            Exit;
+          End;
+        Until (ConversationBox.SelectOption(['soft'])) Or (ConversationBox.PayUp);
+
+        If ConversationBox.PayUp Then
+        Begin
+          If Debug Then
+            Writeln('Paying butler');
+
+          ConversationBox.Continue(True,True);
+          TypeFast('1',False);
+
+          T.Reset;
+          T.Start;
+          Repeat
+            If CountColor(618917,ConversationBox.GetBounds)>0 Then
+              Break;
+            If T.GetTime>4000 Then
+            Begin
+              If Debug Then
+                Writeln('Didnt find orange highlight color for paying butler');
+              Exit;
+            End;
+          Until Not IsLoggedIn;
+
+          If Debug Then
+            Writeln('Re-clicking butler');
+
+          GoTo Jump;
+        End;
+
+        If Debug Then
+          Writeln('Sending for more logs.');
+
+        Result:=True;
+
+        T.Reset;
+        T.Start;
+        Repeat
+          If CountColor(618917,ConversationBox.GetBounds)>0 Then
+            Break;
+          If T.GetTime>4000 Then
+          Begin
+            If Debug Then
+              Writeln('Didnt find orange highlight color for getting logs');
+            Exit;
+          End;
+        Until Not IsLoggedIn;
+
+        Wait(RandomRange(1000,2000));
+
+      {  If WaitFindColor(X,Y,0,266,397,281,407,1,5000) Then
+        Begin
+          Wait(Random(800));
+          If (28-TabBackpack.Count)<=Count Then
+            TypeSendEx(Tostr(28-TabBackpack.Count),True) Else
+            TypeSendEx(ToStr(Count),True);
+          Result:= True;
+          Exit;
+        End;  }
+      End;
+    End;
+  End;
+End;
+
+Function FindLectern:Boolean;
+Var
+  H,I,CTS,X,Y: Integer;
+  B: TBox;
+  TBA: TBoxArray;
+  MBP: TPoint;
+  TPA: TPointArray;
+  ATPA: T2DPointArray;
+Begin
+  Result := False;
+
+  If Not IsLoggedIn Then
+    Exit;
+
+  If ChatBox.FindTextOnLines(['cannot'],[0]) Then
+  Begin
+    Writeln('You cant make that tablet on this lectern, terminating script');
+    TerminateScript;
+  End;
+
+  If Timeout.GetTime>300000 Then
+  Begin
+    Writeln('Nothing has happened for too long, shutting down.');
+    TerminateScript;
+  End;
+
+  If MakeItemMenu(Random(100)) Then
+  Begin
+    Wait(Random(800));
+    Result:=True;
+    Exit;
+  End;
+
+  If Debug Then
+    Writeln('Looking for lectern');
+
+  If (Not FindDTM(LawDTM,X,Y,TabBackpack.GetBounds)) And (Not FindDTM(NatureDTM,X,Y,TabBackpack.GetBounds)) Then
+  Begin
+    Writeln('Out of runes');
+    TerminateScript;
+  End;
+
+  If Not FindDTM(ClayDTM,X,Y,TabBackpack.GetBounds) Then
+  Begin
+    If Debug Then
+      Writeln('Low on clay, sending for more');
+    If WaitFunc(@FindButler,10,RandomRange(7000,9000)) Then
+      TabBackpack.WaitForShift(20000);
+  End;
+
+  findColorsTolerance(tpa, 1025491, LecternBox, 10,colorSetting(2,0.03,1.16)); //gold
+
+  If (Length(TPA) < 1) Then
+    Exit;
+
+  ATPA:= TPA.Cluster(10);
+  atpa.filterBetween(0,5);
+
+  SetLength(TPA,0);
+
+  If (Length(ATPA) = 0) Then
+  Begin
+    If Debug Then
+      Writeln('No lecturn colors found');
+    Exit;
+  End;
+
+  H := High(ATPA);
+
+  For I := 0 To H Do
+  Begin
+    If Debug Then
+      Writeln(Length(ATPA[I]));
+
+    If (Length(ATPA[I]) < 80) Then
+    Begin
+      B := GetTPABounds(ATPA[I]);
+      B.Edit(-10,-10,+10,+10);
+
+      With B Do
+      Begin
+
+        findColorsTolerance(tpa, 10134180, LecternBox, 17,colorSetting(2, 0.09,0.18));
+
+        If (Length(TPA) > 10) Then
+        Begin
+          If Debug Then
+            Writeln('Inner Length: '+ToStr(Length(TPA)));
+
+          B.Edit(+12,+10,-10,-10);
+          B.SetLimit(Mainscreen.GetBounds);
+
+          SetArrayLength(TBA, Length(TBA)+1);
+          TBA[High(TBA)] := B;
+        End;
+        SetLength(TPA,0);
+      End;
+    End;
+  End;
+
+  SetLength(ATPA,0);
+
+  SmartImage.DrawBoxes(TBA,False,clRed);
+
+  MidSortBoxArrayFrom(TBA,Mainscreen.PlayerPoint);
+
+  For H := 0 To High(TBA) Do
+  Begin
+    MBP := MiddleBox(TBA[H]);
+    Mouse(MBP.X, MBP.Y,GaussRangeInt(-5,5),GaussRangeInt(-5,5));
+
+    If (IsMouseOverText(['udy','tern','Lec','tudy'],RandomRange(200,300))) Then
+    Begin
+      SMARTImage.Clear;
+      If Debug Then
+        Writeln('Found lectern, clicking');
+
+      If DidClick(False) Then
+      Begin
+        FailSafe;
+        SetLength(TBA,0);
+        Exit;
+      End Else
+      Begin
+        MouseBox(TabBox);
+        If MakeItemMenu(10000) Then
+        Begin
+          Wait(Random(200));
+          SetLength(TBA,0);
+          Result := True;
+          Exit;
+        End;
+      End;
+    End;
+  End;
+  SetLength(TBA,0);
+End;
+
+Procedure ProgressReport;
+Begin
+  SMARTImage.Clear;
+  If Not Debug Then
+    ClearDebug;
+
+  XP := Round((ChatBox.GetXP - StartingExperience));
+  XPH := Round(XP * (3600.0 / (GetTimeRunning / 1000.0)));
+  TabsPH := Round((TabCount * (3600.0 / (GetTimeRunning / 1000.0))));
+
+  Writeln('========AshamanTabs V'+ScriptVersion+'=========');
+  Writeln('Time Running: ' + TimeRunning);
+  Writeln('Making: ' + TabType + ' Tabs');
+  Writeln('Tabs Made: ' + IntToStr(TabCount));
+  Writeln('Tabs/H: ' + ToStr(TabsPH));
+  Writeln('Experience Earned: ' + IntToStr(XP));
+  Writeln('Experience/Hour: ' + ToStr(XPH));
+  Writeln('=================================');
+
+  Timeout.Reset;
+  Timeout.Start;
+End;
+
+Procedure Waiting;
+Var
+  Inv1: Integer;
+  T: TTimeMarker;
+Begin
+  T.Start;
+  Inv1:=TabBackpack.Count;
+  IncEx(TabCount,TabBackpack.CountDTM(ClayDTM));
+  Repeat
+    Wait(Random(800));
+    If Inv1>TabBackpack.Count Then
+    Begin
+      T.Reset;
+      T.Start;
+    End;
+    If T.GetTime > 15000 Then
+    Begin
+      ProgressReport;
+      Exit;
+    End;
+    If FindNormalRandoms Then
+    Begin
+      Writeln('Found a random, terminating script');
+      Exit;
+    End;
+    AntiBan;
+  Until (TabBackpack.CountDTM(ClayDTM)=0);
+  ProgressReport;
+End;
+
+Function FindTab:Boolean;
+Begin
+  Result := False;
+
+  If Not IsLoggedIn Then
+    Exit;
+
+  If Not MakeItemMenu(10000) Then
+    Exit;
+
+  If Debug Then
+    Writeln('Moving mouse to tab icon');
+
+  Wait(Random(200));
+
+  MouseBox(TabBox);
+  If Debug Then
+    Writeln('Clicking on icon');
+
+  FastClick(Mouse_Right);
+  If ChooseOption.Select(['All','-All','ke-A'],RandomRange(1000,2000)) Then
+    If TabBackpack.WaitForShift(8000) Then
+      Waiting;
+End;
+
+Procedure MainLoop;
+Begin
+  FindNormalRandoms;
+  If FindLectern Then
+    FindTab;
+  Wait(Random(800));
+End;
+
+Procedure Setup;
+Begin
+  ClearDebug;
+  SmartEnableDrawing := True;
+  SetupSRL;
+
+  DeclarePlayers;
+
+  AddOnTerminate('Fr33DTM');
+  SetDTM;
+
+  If (Not IsLoggedIn) Then
+  Begin
+    Writeln('Please log in and setup the position as needed');
+    TerminateScript;
+  End;
+
+  DisableSRLDebug:=True;
+
+  ClearDebug;
+
+  Minimap.ClickCompass;
+  MainScreen.SetAngle(MS_ANGLE_HIGH);
+
+  StartingExperience := ChatBox.GetXP;
+  Timeout.Start;
+  RunTimer.Start;
+  RunTime:= Round(TimetoRun * 60 * 60 * 1000 + Random(300000));
+  Writeln('You are going to run for ' + MsToTime(RunTime, Time_Formal));
+
+  LecternBox := Mainscreen.PlayerBox;
+  LecternBox.Edit(-20,-25,20,25);
+
+  Case Lowercase(TabType) Of
+    'varrock'             : Begin TabBox:= [253,256,304,303]; End;
+    'lumbridge'           : Begin TabBox:= [170,93,220,139]; End;
+    'falador'             : Begin TabBox:= [253,175,303,218]; End;
+    'camelot'             : Begin TabBox:= [335,258,387,306]; End;
+    'ardougne'            : Begin TabBox:= [334,179,386,222]; End;
+    'watchtower'          : Begin TabBox:= [339,98,387,139]; End;
+    'house'               : Begin TabBox:= [424,96,473,143]; End;
+    'btb'                 : Begin TabBox:= [424,179,474,222]; End;
+    'btp'                 : Begin TabBox:= [423,257,470,304]; End;
+   { 'enchantsapphire'     : Begin TabX1:=143; TabY1:=201-50; TabX2:=193; TabY2:=247-50 End;
+    'enchantemerald'      : Begin TabX1:=60;  TabY1:=199-50; TabX2:=106; TabY2:=238-50 End;
+    'enchantruby'         : Begin TabX1:=144; TabY1:=282-50; TabX2:=188; TabY2:=327-50 End;
+    'enchantdiamond'      : Begin TabX1:=230; TabY1:=121-50; TabX2:=271; TabY2:=163-50 End;
+    'enchantdragonstone'  : Begin TabX1:=55;  TabY1:=286-50; TabX2:=111; TabY2:=327-50 End;
+    'enchantonyx'         : Begin TabX1:=67;  TabY1:=113-50; TabX2:=111; TabY2:=162-50 End; }
+  End;
+
+  If DemonButler Then
+  Begin
+    Count     := 26;
+    Color     := 1580857;
+    Tolerance := 12;
+    Hue       := 0.30;
+    Sat       := 1.21;
+    Writeln('You are using the Demon Butler');
+  End Else
+  Begin
+    Count     := 20;
+    Color     := 1055559;
+    Tolerance := 10;
+    Hue       := 0.32;
+    Sat       := 1.30;
+    Writeln('You are using the Normal Butler');
+  End;
+  If TabType='' Then
+  Begin
+    Writeln('You dont have a tab specified! Shutting down');
+    TerminateScript;
+  End;
+  Writeln('We are going to make some '+TabType+' tabs today!');
+End;
+
+Begin
+  Setup;
+  Repeat
+    Mainloop;
+  Until (RunTime < RunTimer.GetTime) Or (Not IsLoggedIn);
+End.
