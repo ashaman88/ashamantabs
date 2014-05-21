@@ -1,10 +1,10 @@
-Program AshamanTabs;
+program AshamanTabs;
   {$Define SMART}
   {$I SRL-6/SRL.Simba}
 
 {
 
-AshamanTabs v2.0
+AshamanTabs v2.1
 -Make sure you are standing in front of your lectern and next to the butler (talk to him)
 -Make sure you have noted clay in inventory
 -If using a staff, have it already equipped
@@ -21,28 +21,13 @@ AshamanTabs v2.0
 //                                                                   //
 ///////////////////////////////////////////////////////////////////////
 
-Const
-  DemonButler = True;  // ***Set to true if you are using the demon butler (False if you are using regular butler)***
-  TabType     = '';    // ***What kind of tab are you making?***
-                       //    (Varrock,Lumbridge,Falador,Camelot,Ardougne,Watchtower,House)
-                       //    (BTB,BTP,==DEMON LECTERN NOT ADDED YET SRL 6 ==EnchantSapphire,EnchantEmerald,EnchantRuby,EnchantDiamond,EnchantDragonstone,EnchantOnyx)
-  TimetoRun   = 8.0;   // ***Enter number of hours to run or until client token error***
-  Slot        = 1;     // ***What slot is your noted softclay at?***
+const
+  demonButler = true;  // ***Set to true if you are using the demon butler (False if you are using regular butler)***
+  tabSlot     = 1;    // ***What slot in the production screen is the tab you're making in?***
+                       //    (slots go 1-4 row 1, 5-8 row 2, etc. etc.)
+  timetoRun   = 8.0;   // ***Enter number of hours to run or until client token error***
+  slot        = 1;     // ***What slot is your noted softclay at?***
 
-Procedure DeclarePlayers;
-Begin
-  Players.Setup(['Player1'], 'PlayerList'); //***Fill this out, Player1 = Name of the account in player manager, PlayerList = name of the player file***
-  SetLength(Players,1);
-
-  //***If NOT using the player manager, fill out the loginname and password below, otherwise ignore those two***
-  With players[0] Do
-  Begin
-  // loginName := '';      {Remove the "//" from this line if you arent using player manager}
-  // password := '';       {Remove the "//" from this line if you arent using player manager}
-    IsActive := True;
-  End;
-  CurrentPlayer := 0;
-End;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                                                                                  //
@@ -51,16 +36,32 @@ End;
 //                                                                                                  //
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Const
-  ScriptVersion = '2.0';
-  Debug = False;
 
-Var
-  TabCount,XP,StartingExperience: Integer;
-  TabBox,LecternBox: TBox;
-  Timeout,RunTimer: TTimeMarker;
-  NotedClayDTM,ClayDTM,LawDTM,Color,Tolerance,Count,NatureDTM,RunTime,XDTM: Integer;
-  TabsPH,XPH,Hue,Sat: Extended;
+
+procedure declarePlayers;
+begin
+  setLength(players, 1);
+
+  //***If NOT using the player manager, fill out the loginname and password below, otherwise ignore those two***
+  with players[0] do
+  begin
+    loginName := '';      {Remove the "//" from this line if you arent using player manager}
+    password := '';       {Remove the "//" from this line if you arent using player manager}
+    isActive := true;
+  end;
+  currentPlayer := 0;
+end;
+
+const
+  scriptVersion = '2.1';
+  debug = false;
+
+var
+  tabCount, XP, startingExperience: integer;
+  lecternBox: TBox;
+  timeout, runTimer: TTimeMarker;
+  notedClayDTM, clayDTM, lawDTM, color, tolerance, count, natureDTM, runTime, XDTM: integer;
+  tabsPH, XPH, hue, sat: Extended;
 
 {*******************************************************************************
 Function AutoupdateMe;
@@ -99,23 +100,23 @@ Begin
     WriteLn('You have the latest version of the script!');
 End;
 
-Procedure SetDTM;
-Begin
-  NotedClayDTM := DTMFromString('mQwAAAHicY2ZgYMhiYmAoAeIUIH4C5L8F4jdAHGLLw7B6dhHDnN4MBn4gH4YZkTAQAABS9Qgf');
-  ClayDTM := DTMFromString('mggAAAHicY2NgYGBlQABOIBYEYnYoZgFiHiDmQ1IXYsvD4GvBzRDvyssQ4cDDYKPNwWCny8nABZTDhhlxYAgAABXfA/4=');
-  LawDTM := DTMFromString('mWAAAAHicY2FgYHBkYmBwB2IbIPYC4hdAsSdA/JgBwpZXvgbHtRUVDPxAMWTMiIZBAAAL6Qmn');
-  NatureDTM := DTMFromString('mlwAAAHicY2dgYOAAYj4gZgNiLigGAUEgZoSy2ZHUgdicQFxWWMggUCEMx7GRkQyRoaEMVaUlDPxAeVyYEQ+GAgBNvQeF');
-  XDTM := DTMFromString('mggAAAHicY2NgYDBlgmALIDYBYn0oTgHKJQBxKhBnAnEGA0RMSVaMITXaA44L0wIZGopiGFiBctgwIw4MAQD0zgms');
-End;
+procedure setDTM;
+begin
+  notedClayDTM := DTMFromString('mQwAAAHicY2ZgYMhiYmAoAeIUIH4C5L8F4jdAHGLLw7B6dhHDnN4MBn4gH4YZkTAQAABS9Qgf');
+  clayDTM := DTMFromString('mggAAAHicY2NgYGBlQABOIBYEYnYoZgFiHiDmQ1IXYsvD4GvBzRDvyssQ4cDDYKPNwWCny8nABZTDhhlxYAgAABXfA/4=');
+  lawDTM := DTMFromString('mWAAAAHicY2FgYHBkYmBwB2IbIPYC4hdAsSdA/JgBwpZXvgbHtRUVDPxAMWTMiIZBAAAL6Qmn');
+  natureDTM := DTMFromString('mlwAAAHicY2dgYOAAYj4gZgNiLigGAUEgZoSy2ZHUgdicQFxWWMggUCEMx7GRkQyRoaEMVaUlDPxAeVyYEQ+GAgBNvQeF');
+  xDTM := DTMFromString('mggAAAHicY2NgYDBlgmALIDYBYn0oTgHKJQBxKhBnAnEGA0RMSVaMITXaA44L0wIZGopiGFiBctgwIw4MAQD0zgms');
+end;
 
-Procedure Fr33DTM;
-Begin
-  FreeDTM(ClayDTM);
-  FreeDTM(NotedClayDTM);
-  FreeDTM(LawDTM);
-  FreeDTM(NatureDTM);
-  FreeDTM(XDTM);
-End;
+Procedure fr33DTM;
+begin
+  freeDTM(clayDTM);
+  freeDTM(notedClayDTM);
+  freeDTM(lawDTM);
+  freeDTM(natureDTM);
+  freeDTM(xDTM);
+end;
 
 function TRSChatBox.getXP: Integer;
 var
@@ -212,37 +213,10 @@ Begin
   QuickBoxSort(DistArr,BoxArray,0,l,True);
 End;
 
-procedure mouseOffClient(Direction: Integer; Stay: Boolean);  overload;
-var
-  B: TBoxArray;
-  P: TPoint;
-  i, W, H,X,Y: Integer;
+function findNormalRandoms: boolean;
 begin
-  GetClientDimensions(W, H);
-  GetMousePos(X,Y);
-  if (X < 0) or (X > W) or (Y < 0) or (Y > H) then
-     exit;
-
-  SetLength(B, 4);
-
-  B[OFF_CLIENT_TOP] := [-300, -300, W, 0]; // top
-  B[OFF_CLIENT_BOTTOM] := [0, H, W, H +300];  // bottom
-  B[OFF_CLIENT_LEFT] := [0-300, 0, 0, H];   // left
-  B[OFF_CLIENT_RIGHT] := [W, 0, W +300, H];  // right
-
-  if (Direction = OFF_CLIENT_RANDOM) then
-    i := Random(4)
-  else
-    i := Direction;
-
-  P := Point(RandomRange(B[i].X1, B[i].X2), RandomRange(B[i].Y1, B[i].Y2));
-  Mouse(Point(P.X, P.Y), MOUSE_MOVE);
+  result := exitTreasure or claimTicket;
 end;
-
-Function FindNormalRandoms: Boolean;
-Begin
-  Result:= ExitSquealOfFortune Or ClaimSpinTicket;
-End;
 
 Function Antiban: Boolean;
 Var
@@ -274,7 +248,7 @@ Begin
     201..400:
       Begin
         Wait(RandomRange(250, 1500));
-        MouseOffClient(4,True);
+        MouseOffClient(4);
         Wait(RandomRange(3000, 6000));
         Result:=True;
       End;
@@ -302,20 +276,6 @@ Begin
     TypeByte(VK_ENTER);
 End;
 
-Function MakeItemMenu(Time: Integer): Boolean;
-Var
-  T: TTimeMarker;
-  X,Y: Integer;
-Begin
-  If Not IsLoggedIn Then
-    Exit;
-  T.Start;
-  Repeat
-    Wait(Random(100));
-    Result:= FindDTM(XDTM,X,Y,506,35,533,62);
-  Until (T.GetTime>Time) Or (Result);
-End;
-
 Procedure FailSafe;
 Var
   T: TTimeMarker;
@@ -333,28 +293,6 @@ Begin
       Exit;
   Until (Not(Minimap.IsPlayerMoving));
 End;
-
-function TRSConversationBox.PayUp: Boolean;
-var
-  b: TBox;
-  bb: TBoxArray;
-  tpa : TPointArray;
-  atpa : T2DPointArray;
-  i,cts: Integer;
-begin
-
-  if not self.isopen then
-    Exit;
-
-  cts := GetToleranceSpeed();
-  SetColorToleranceSpeed(2);
-
-  SetToleranceSpeed2Modifiers(0.23,3.37);
-
-  result:= countcolortolerance(9841213,IntToBox(325,515,363,528),13)=86;
-  SetColorToleranceSpeed(1);
-  SetToleranceSpeed2Modifiers(0.2,0.2);
-end;
 
 Function FindButler: Boolean;
 Var
@@ -450,9 +388,9 @@ Begin
               Writeln('Didnt find butler chat option timeout');
             Exit;
           End;
-        Until (ConversationBox.SelectOption(['soft'])) Or (ConversationBox.PayUp);
+        Until (ConversationBox.SelectOption(['soft'])) Or (ConversationBox.Continue(True,False, false));
 
-        If ConversationBox.PayUp Then
+        If (ConversationBox.Continue(True,False, false)) Then
         Begin
           If Debug Then
             Writeln('Paying butler');
@@ -529,7 +467,7 @@ Begin
     TerminateScript;
   End;
 
-  If MakeItemMenu(Random(100)) Then
+  If productionscreen.isopen(Random(100)) Then
   Begin
     Wait(Random(800));
     Result:=True;
@@ -627,8 +565,7 @@ Begin
         Exit;
       End Else
       Begin
-        MouseBox(TabBox);
-        If MakeItemMenu(10000) Then
+        If productionscreen.isopen(10000) Then
         Begin
           Wait(Random(200));
           SetLength(TBA,0);
@@ -653,7 +590,6 @@ Begin
 
   Writeln('========AshamanTabs V'+ScriptVersion+'=========');
   Writeln('Time Running: ' + TimeRunning);
-  Writeln('Making: ' + TabType + ' Tabs');
   Writeln('Tabs Made: ' + IntToStr(TabCount));
   Writeln('Tabs/H: ' + ToStr(TabsPH));
   Writeln('Experience Earned: ' + IntToStr(XP));
@@ -701,7 +637,7 @@ Begin
   If Not IsLoggedIn Then
     Exit;
 
-  If Not MakeItemMenu(10000) Then
+  If Not Productionscreen.isopen(10000) Then
     Exit;
 
   If Debug Then
@@ -709,14 +645,13 @@ Begin
 
   Wait(Random(200));
 
-  MouseBox(TabBox);
   If Debug Then
     Writeln('Clicking on icon');
 
-  FastClick(Mouse_Right);
-  If ChooseOption.Select(['All','-All','ke-A'],RandomRange(1000,2000)) Then
-    If TabBackpack.WaitForShift(8000) Then
-      Waiting;
+  If productionscreen.selectBox(tabSlot) Then
+    if productionscreen.clickstart then
+      If TabBackpack.WaitForShift(8000) Then
+        Waiting;
 End;
 
 Procedure MainLoop;
@@ -727,86 +662,65 @@ Begin
   Wait(Random(800));
 End;
 
-Procedure Setup;
-Begin
-  ClearDebug;
-  AutoUpdateMe;
-  SmartEnableDrawing := True;
-  SetupSRL;
+procedure setup;
+begin
+  clearDebug;
+  autoUpdateMe;
+  smartEnableDrawing := true;
 
-  DeclarePlayers;
+  setupSRL;
 
-  AddOnTerminate('Fr33DTM');
-  SetDTM;
+  declarePlayers;
 
-  If (Not IsLoggedIn) Then
-  Begin
-    Writeln('Please log in and setup the position as needed');
-    TerminateScript;
-  End;
+  addOnTerminate('Fr33DTM');
+  setDTM;
 
-  DisableSRLDebug:=True;
+  if (not isLoggedIn) then
+  begin
+    writeln('Please log in and setup the position as needed');
+    terminateScript;
+  end;
 
-  ClearDebug;
+  if not debug then
+    disableSRLDebug := true else
+    disableSRLDebug := false;
 
-  Minimap.ClickCompass;
-  MainScreen.SetAngle(MS_ANGLE_HIGH);
+  clearDebug;
 
-  StartingExperience := ChatBox.GetXP;
-  Timeout.Start;
-  RunTimer.Start;
-  RunTime:= Round(TimetoRun * 60 * 60 * 1000 + Random(300000));
-  Writeln('You are going to run for ' + MsToTime(RunTime, Time_Formal));
+  minimap.clickCompass;
+  mainScreen.setAngle(MS_ANGLE_HIGH);
 
-  LecternBox := Mainscreen.PlayerBox;
-  LecternBox.Edit(-20,-25,20,25);
+  startingExperience := chatBox.getXP;
+  timeout.start;
+  runTimer.start;
+  runTime := round(timetoRun * 60 * 60 * 1000 + random(300000));
+  writeln('You are going to run for ' + msToTime(runTime, time_Formal));
 
-  Case Lowercase(TabType) Of
-    'varrock'             : Begin TabBox:= [253,256,304,303]; End;
-    'lumbridge'           : Begin TabBox:= [170,93,220,139]; End;
-    'falador'             : Begin TabBox:= [253,175,303,218]; End;
-    'camelot'             : Begin TabBox:= [335,258,387,306]; End;
-    'ardougne'            : Begin TabBox:= [334,179,386,222]; End;
-    'watchtower'          : Begin TabBox:= [339,98,387,139]; End;
-    'house'               : Begin TabBox:= [424,96,473,143]; End;
-    'btb'                 : Begin TabBox:= [424,179,474,222]; End;
-    'btp'                 : Begin TabBox:= [423,257,470,304]; End;
-   { 'enchantsapphire'     : Begin TabX1:=143; TabY1:=201-50; TabX2:=193; TabY2:=247-50 End;
-    'enchantemerald'      : Begin TabX1:=60;  TabY1:=199-50; TabX2:=106; TabY2:=238-50 End;
-    'enchantruby'         : Begin TabX1:=144; TabY1:=282-50; TabX2:=188; TabY2:=327-50 End;
-    'enchantdiamond'      : Begin TabX1:=230; TabY1:=121-50; TabX2:=271; TabY2:=163-50 End;
-    'enchantdragonstone'  : Begin TabX1:=55;  TabY1:=286-50; TabX2:=111; TabY2:=327-50 End;
-    'enchantonyx'         : Begin TabX1:=67;  TabY1:=113-50; TabX2:=111; TabY2:=162-50 End; }
-  End;
+  lecternBox := mainscreen.playerBox;
+  lecternBox.edit(-20, -25, 20, 25);
 
-  If DemonButler Then
-  Begin
-    Count     := 26;
-    Color     := 1580857;
-    Tolerance := 12;
-    Hue       := 0.30;
-    Sat       := 1.21;
-    Writeln('You are using the Demon Butler');
-  End Else
-  Begin
-    Count     := 20;
-    Color     := 1055559;
-    Tolerance := 10;
-    Hue       := 0.32;
-    Sat       := 1.30;
-    Writeln('You are using the Normal Butler');
-  End;
-  If TabType='' Then
-  Begin
-    Writeln('You dont have a tab specified! Shutting down');
-    TerminateScript;
-  End;
-  Writeln('We are going to make some '+TabType+' tabs today!');
-End;
+  if demonButler then
+  begin
+    count := 26;
+    color := 1580857;
+    tolerance := 12;
+    hue := 0.30;
+    sat := 1.21;
+    writeln('You are using the Demon Butler');
+  end else
+  begin
+    count := 20;
+    color := 1055559;
+    tolerance := 10;
+    hue := 0.32;
+    sat := 1.30;
+    writeln('You are using the Normal Butler');
+  end;
+end;
 
-Begin
-  Setup;
-  Repeat
-    Mainloop;
-  Until (RunTime < RunTimer.GetTime) Or (Not IsLoggedIn);
-End.
+begin
+  setup;
+  repeat
+    mainloop;
+  until (runTime < runTimer.getTime) or (not isLoggedIn);
+end.
